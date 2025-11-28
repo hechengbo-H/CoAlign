@@ -5,6 +5,7 @@
 from habitat_llm.world_model.entities.floor import Floor
 from habitat_llm.world_model.entities.furniture import Furniture
 from habitat_llm.world_model.entity import (
+    Concept,
     Entity,
     House,
     Human,

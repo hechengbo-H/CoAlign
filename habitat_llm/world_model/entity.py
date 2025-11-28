@@ -173,6 +173,20 @@ class Object(Entity):
         )
 
 
+class Concept(Entity):
+    """Represents a high-level concept node associated with entities in the graph."""
+
+    def __init__(self, name, properties, sim_handle=None):
+        super().__init__(name, properties, sim_handle)
+
+    def __deepcopy__(self, memo):
+        return Concept(
+            copy.deepcopy(self.name, memo),
+            copy.deepcopy(self.properties, memo),
+            copy.deepcopy(self.sim_handle, memo),
+        )
+
+
 class SpotRobot(Entity):
     """
     This class represents spot robot

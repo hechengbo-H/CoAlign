@@ -28,6 +28,7 @@ from habitat.sims.habitat_simulator.sim_utilities import (
 from habitat.tasks.rearrange.rearrange_sim import RearrangeSim
 from magnum import Vector3
 
+from habitat_llm.perception.concept_mapping import map_detection_to_concepts
 from habitat_llm.perception.perception import Perception
 from habitat_llm.sims.metadata_interface import MetadataInterface
 from habitat_llm.utils.sim import get_faucet_points, get_receptacle_dict
@@ -109,6 +110,26 @@ class PerceptionSim(Perception):
 
         # Cache of object positions.
         self._obj_position_cache: Dict[str, Vector3] = {}
+
+    def _attach_concept_annotations(self, node, semantic_label: Optional[str]) -> None:
+        """Map a semantic label to concept annotations for the provided node."""
+
+        labels, confidences = map_detection_to_concepts(semantic_label, self.metadata_interface)
+        if labels:
+            self.gt_graph.add_or_update_concept_annotation(
+                node,
+                labels,
+                confidences,
+                concept_node_name=f"concept_{node.name}",
+            )
+
+    def _annotate_nodes_by_name(self, node_names: List[str]) -> None:
+        for name in node_names:
+            try:
+                node = self.gt_graph.get_node_from_name(name)
+            except ValueError:
+                continue
+            self._attach_concept_annotations(node, node.properties.get("type"))
 
     @property
     def receptacles(self) -> Dict[str, HabReceptacle]:
@@ -337,6 +358,7 @@ class PerceptionSim(Perception):
 
             # Add furniture to the graph
             self.gt_graph.add_node(fur)
+            self._attach_concept_annotations(fur, furniture_type)
 
             # Add name to handle mapping
             self.sim_handle_to_name[furniture_sim_handle] = furniture_name
@@ -410,6 +432,7 @@ class PerceptionSim(Perception):
 
             # Add object node to the graph
             self.gt_graph.add_node(obj)
+            self._attach_concept_annotations(obj, obj_type)
 
             # Connect object to the receptacle
             if "floor" in fur_rec_handle:
@@ -696,6 +719,9 @@ class PerceptionSim(Perception):
         agent_names = [f"agent_{uid}" for uid in agent_uids]
         names.extend(agent_names)
 
+        # ensure detected nodes carry concept annotations
+        self._annotate_nodes_by_name(names)
+
         # add held objects to the subgraph because they may not be seen
         # by the observations
         for uid in agent_uids:
@@ -711,7 +737,9 @@ class PerceptionSim(Perception):
 
         return copy.deepcopy(subgraph)
 
-    def get_recent_graph(self) -> WorldGraph:
+    def get_recent_graph(
+        self, log_concepts: bool = False, concept_log_path: Optional[str] = None
+    ) -> WorldGraph:
         """
         Method to return most recent ground truth graph.
 
@@ -724,6 +752,9 @@ class PerceptionSim(Perception):
         self.update_object_receptacle_associations()
         self.update_agent_room_associations()
         self.update_object_and_furniture_states()
+
+        if log_concepts:
+            self.gt_graph.log_concept_layer(concept_log_path)
 
         return copy.deepcopy(self.gt_graph)
 

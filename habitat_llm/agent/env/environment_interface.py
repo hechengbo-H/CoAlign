@@ -6,7 +6,7 @@ import glob
 import json
 import os
 from collections import OrderedDict, defaultdict
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import cv2
 import gym
@@ -563,6 +563,21 @@ class EnvironmentInterface:
             self.partial_obs,
             "gt",  # human's WG is always updated in privileged mode
         )
+
+    def get_concept_state(
+        self, agent_uid: Optional[int] = None, log_path: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Return serialized concept annotations (labels + uncertainties) for an agent."""
+
+        agent_key = agent_uid if agent_uid is not None else self.robot_agent_uid
+        if agent_key not in self.world_graph:
+            raise ValueError(f"No world graph found for agent id {agent_key}")
+
+        graph = self.world_graph[agent_key]
+        concept_state = graph.serialize_concept_layer()
+        if log_path is not None:
+            graph.log_concept_layer(log_path)
+        return concept_state
 
     def get_frame_description(self, obs):
         """

@@ -7,15 +7,16 @@
 import copy
 import random
 
-from habitat_llm.world_model import (
+from habitat_llm.world_model.entity import (
+    Concept,
     Entity,
-    Furniture,
     Human,
     Object,
     Receptacle,
     Room,
     SpotRobot,
 )
+from habitat_llm.world_model.entities.furniture import Furniture
 
 
 class Graph:
@@ -325,6 +326,9 @@ class Graph:
                     old_node.properties["translation"] = new_node.properties[
                         "translation"
                     ]
+                for prop in ("concept_labels", "concept_confidence"):
+                    if prop in new_node.properties:
+                        old_node.properties[prop] = new_node.properties[prop]
 
         # Now add all new edges
         for curr_node in other_graph.graph:
