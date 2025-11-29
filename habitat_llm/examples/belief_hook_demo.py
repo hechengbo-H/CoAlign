@@ -48,6 +48,7 @@ def run_demo():
     metrics = BeliefMetrics(
         avg_concept_confidence=env.world_graph[0].average_concept_confidence(),
         belief_divergence=env.belief_divergence,
+        divergence_metric=decision_conf.get("divergence_metric", "belief_divergence"),
     )
 
     action, reason = choose_belief_action(decision_conf, metrics)

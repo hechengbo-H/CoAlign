@@ -578,6 +578,33 @@ class LLMPlanner(Planner):
         info = {"llm_response": llm_response}
         return info
 
+    def _gather_belief_metrics(
+        self, decision_conf: Dict[str, Any], world_graph: Dict[int, "WorldGraph"]
+    ) -> BeliefMetrics:
+        """Collect divergence and confidence metrics used by decision hooks."""
+
+        divergence_metric = decision_conf.get("divergence_metric", "belief_divergence")
+        divergence_value: Optional[float] = getattr(self.env_interface, "belief_divergence", 0.0)
+        divergence_metrics: Optional[Dict[str, float]] = None
+
+        if hasattr(self.env_interface, "get_belief_divergence"):
+            try:
+                divergence_metrics = self.env_interface.get_belief_divergence()
+            except Exception:
+                divergence_metrics = None
+
+        if isinstance(divergence_metrics, dict):
+            divergence_value = divergence_metrics.get(divergence_metric, divergence_value)
+            if divergence_value is None and divergence_metrics:
+                divergence_value = next(iter(divergence_metrics.values()))
+
+        return BeliefMetrics(
+            avg_concept_confidence=world_graph[self._agents[0].uid].average_concept_confidence(),
+            belief_divergence=float(divergence_value or 0.0),
+            divergence_metric=divergence_metric,
+            divergence_metrics=divergence_metrics,
+        )
+
     def get_next_action(
         self,
         instruction: str,

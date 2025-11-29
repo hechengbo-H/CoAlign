@@ -65,10 +65,32 @@ def test_choose_belief_action_prefers_correction():
         "correction_divergence_threshold": 0.3,
         "concept_confidence_threshold": 0.5,
     }
-    metrics = BeliefMetrics(avg_concept_confidence=0.9, belief_divergence=0.5)
+    metrics = BeliefMetrics(
+        avg_concept_confidence=0.9,
+        belief_divergence=0.5,
+        divergence_metric="concept_js_divergence",
+    )
     action, reason = choose_belief_action(decision_conf, metrics)
     assert action == "CorrectHuman"
     assert "0.5" in reason
+
+
+def test_choose_belief_action_supports_l2d_action():
+    decision_conf = {
+        "enable": True,
+        "divergence_threshold": 0.2,
+        "correction_divergence_threshold": 0.6,
+        "concept_confidence_threshold": 0.1,
+        "l2d_action": {"enable": True, "divergence_threshold": 0.4, "action": "L2D"},
+    }
+    metrics = BeliefMetrics(
+        avg_concept_confidence=0.9,
+        belief_divergence=0.45,
+        divergence_metric="concept_js_divergence",
+    )
+    action, reason = choose_belief_action(decision_conf, metrics)
+    assert action == "L2D"
+    assert "L2D threshold" in reason
 
 
 def test_append_observation_tool_updates_confidence():

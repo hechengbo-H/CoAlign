@@ -112,6 +112,33 @@ To run baselines with neural network skills for the robot agent (point nav, pick
 You can check the progress of the run and the results so far using
 `python scripts/read_results.py <output_dir>/<dataset_name>`. The default `output_dir` is `outputs/habitat_llm/<timestamp>-<dataset_name>`. This can be overridden using the `paths.results_dir` and `evaluation.output_dir` configuration elements. The output directory also contains the full text traces of the rollouts and other statistics.
 
+## Belief-aware hooks and visualization
+
+Planner decision hooks in `habitat_llm/conf/planner/llm_planner.yaml` now expose additional controls:
+
+- `cbwm_enabled`: toggle the concept-based world model gating for concept confidence checks.
+- `concept_confidence_threshold`: minimum average concept confidence before asking for more observations.
+- `divergence_metric`: select which metric from `get_belief_divergence` to monitor (e.g., `concept_js_divergence`).
+- `divergence_threshold` / `correction_divergence_threshold`: thresholds for asking or correcting humans.
+- `l2d_action.enable`, `l2d_action.divergence_threshold`, `l2d_action.action`: optional Listen-to-Disambiguate action when divergence crosses a custom threshold.
+
+Example override for a planner demo:
+
+```bash
+python -m habitat_llm.examples.planner_demo --config-name examples/planner_multi_agent_demo_config.yaml \
+    evaluation.agents.agent_0.planner.plan_config.decision_hooks.divergence_metric=concept_js_divergence \
+    evaluation.agents.agent_0.planner.plan_config.decision_hooks.cbwm_enabled=True \
+    evaluation.agents.agent_0.planner.plan_config.decision_hooks.l2d_action.enable=True \
+    evaluation.agents.agent_0.planner.plan_config.decision_hooks.l2d_action.divergence_threshold=0.5
+```
+
+After a rollout that logs belief metrics (e.g., JSONL with `avg_concept_confidence` and `divergence_metrics`), visualize the confidence and divergence curves with:
+
+```bash
+python scripts/visualize_belief_divergence.py --log-path outputs/habitat_llm/<run>/belief_metrics.jsonl \
+    --concept-threshold 0.6 --divergence-threshold 0.25 --l2d-threshold 0.5
+```
+
 ## Belief-aware configuration knobs
 
 Belief hooks can now be tuned directly from the planner configs to better control correction and recovery behaviors. Key options live under the `plan_config.decision_hooks` section in [`habitat_llm/conf/planner/llm_planner.yaml`](./habitat_llm/conf/planner/llm_planner.yaml):

@@ -28,3 +28,7 @@ plan_config:
       low_confidence_action: "AppendObservation"
       high_divergence_action: "AskHuman"
       correction_action: "CorrectHuman"
+      l2d_action:
+        enable: False
+        divergence_threshold: 0.5
+        action: "ListenToDisambiguate"

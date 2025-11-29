@@ -64,7 +64,7 @@ def choose_belief_action(decision_conf, metrics: BeliefMetrics) -> Tuple[Optiona
         )
         return action, reason
 
-    if metrics.avg_concept_confidence < confidence_threshold:
+    if cbwm_enabled and metrics.avg_concept_confidence < confidence_threshold:
         action = decision_conf.get("low_confidence_action", "AppendObservation")
         reason = (
             f"Average concept confidence {metrics.avg_concept_confidence:.2f} is below "
