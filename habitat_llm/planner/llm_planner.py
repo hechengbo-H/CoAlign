@@ -665,7 +665,14 @@ class LLMPlanner(Planner):
         hook_reason = ""
         decision_conf = self.planner_config.get("decision_hooks", {})
         if decision_conf.get("enable", False):
-            metrics = self._gather_belief_metrics(decision_conf, world_graph)
+            divergence_metrics = {}
+            if hasattr(self.env_interface, "get_belief_divergence"):
+                divergence_metrics = self.env_interface.get_belief_divergence()
+            metrics = BeliefMetrics(
+                avg_concept_confidence=world_graph[self._agents[0].uid].average_concept_confidence(),
+                belief_divergence=self.env_interface.belief_divergence,
+                divergence_metrics=divergence_metrics,
+            )
             hook_action, hook_reason = choose_belief_action(decision_conf, metrics)
             if hook_action:
                 self.last_belief_hook = hook_action

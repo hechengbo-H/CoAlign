@@ -1,178 +1,163 @@
 #!/usr/bin/env python3
-"""Plot concept confidence and belief divergence metrics from logs.
+"""Plot concept confidence and belief divergence over time.
 
-The script expects a metrics file (JSON or JSONL) produced during planner runs
-containing entries like::
-
-    {"step": 3, "avg_concept_confidence": 0.42,
-     "divergence_metrics": {"concept_js_divergence": 0.31}}
-
-Any dictionary entry with a ``divergence_metrics`` field will be parsed. If the
-file is a directory, the script will search for the first ``*.jsonl`` or
-``*.json`` file inside.
+The utility expects a log file or directory containing JSON/JSONL records.
+Each record may embed metrics directly or inside a ``metrics`` field. The
+script is tolerant to minimal inputs: if only concept confidence dictionaries
+are found, it plots their average; if multiple divergence metrics exist, you
+can pick one via ``--divergence-key``.
 """
-
-from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple
 
-import matplotlib
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import yaml
 
 
-def _discover_metrics_file(path: Path) -> Path:
-    if path.is_file():
-        return path
-    for suffix in ("*.jsonl", "*.json", "*.yaml", "*.yml"):
-        candidates = sorted(path.glob(suffix))
-        if candidates:
-            return candidates[0]
-    raise FileNotFoundError(f"Could not find a metrics file under {path}")
+def _iter_json_records(paths: Iterable[Path]) -> Iterable[Dict]:
+    """Yield JSON objects from a collection of files."""
+
+    for path in paths:
+        with path.open("r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    # Try loading the whole file if line parsing fails
+                    try:
+                        f.seek(0)
+                        payload = json.load(f)
+                        if isinstance(payload, list):
+                            for item in payload:
+                                if isinstance(item, dict):
+                                    yield item
+                        elif isinstance(payload, dict):
+                            yield payload
+                    except json.JSONDecodeError:
+                        continue
+                    break
 
 
-def _load_records(path: Path) -> List[Dict]:
-    if path.suffix == ".jsonl":
-        records = []
-        for line in path.read_text().splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            records.append(json.loads(line))
-        return records
+def _collect_files(input_path: Path) -> List[Path]:
+    if input_path.is_file():
+        return [input_path]
 
-    if path.suffix in {".yaml", ".yml"}:
-        content = yaml.safe_load(path.read_text())
-        return content if isinstance(content, list) else [content]
-
-    content = json.loads(path.read_text())
-    return content if isinstance(content, list) else [content]
+    files: List[Path] = []
+    for ext in ("*.json", "*.jsonl", "*.log"):
+        files.extend(sorted(input_path.glob(ext)))
+    return files
 
 
-def _mean_confidence(value: Union[Dict, Iterable, float, int, None]) -> Optional[float]:
-    if value is None:
-        return None
-    if isinstance(value, dict):
-        values = list(value.values())
-    elif isinstance(value, (list, tuple)):
-        values = list(value)
-    else:
-        return float(value)
+def _extract_metric(record: Dict, key: str) -> Optional[float]:
+    """Find a metric either at the top level or under ``metrics``."""
 
-    if not values:
-        return None
-    return float(sum(values) / len(values))
+    if key in record and isinstance(record[key], (int, float)):
+        return float(record[key])
+    metrics = record.get("metrics") or {}
+    if isinstance(metrics, dict) and key in metrics and isinstance(metrics[key], (int, float)):
+        return float(metrics[key])
+    return None
 
 
-def _extract_divergence(entry: Dict, divergence_key: str) -> Optional[float]:
-    divergence_value = entry.get("belief_divergence") or entry.get("divergence")
-    divergence_metrics = (
-        entry.get("divergence_metrics")
-        or entry.get("belief_divergence_metrics")
-        or entry.get("divergence_dict")
-    )
-    if isinstance(divergence_metrics, dict):
-        divergence_value = divergence_metrics.get(divergence_key, divergence_value)
-        if divergence_value is None and divergence_metrics:
-            divergence_value = next(iter(divergence_metrics.values()))
-    elif isinstance(divergence_value, dict):
-        divergence_value = divergence_value.get(divergence_key)
-    return float(divergence_value) if divergence_value is not None else None
+def _average_concept_confidence(record: Dict) -> Optional[float]:
+    """Compute the mean confidence when a dict of concept scores is present."""
+
+    concepts = record.get("concept_confidence")
+    if isinstance(concepts, dict) and concepts:
+        return float(sum(concepts.values()) / len(concepts))
+    return _extract_metric(record, "avg_concept_confidence")
 
 
-def _extract_series(records: List[Dict], divergence_key: str) -> Tuple[List[int], List[float], List[float]]:
+def _prepare_series(records: List[Dict], divergence_key: str) -> Tuple[List[int], List[float], List[float]]:
     steps: List[int] = []
     confidences: List[float] = []
     divergences: List[float] = []
-    for idx, entry in enumerate(records):
-        if not isinstance(entry, dict):
-            continue
-        confidence_value = entry.get("avg_concept_confidence") or entry.get(
-            "concept_confidence"
-        )
-        confidence = _mean_confidence(confidence_value)
-        divergence = _extract_divergence(entry, divergence_key)
-        if confidence is None and divergence is None:
-            continue
-        steps.append(int(entry.get("step", idx)))
-        confidences.append(confidence if confidence is not None else float("nan"))
-        divergences.append(divergence if divergence is not None else float("nan"))
+
+    for idx, record in enumerate(records):
+        step = record.get("step") or record.get("timestep") or record.get("episode_step")
+        steps.append(int(step) if step is not None else idx)
+
+        confidence = _average_concept_confidence(record)
+        divergence = _extract_metric(record, divergence_key)
+
+        # Fallback to aggregated divergence dicts
+        if divergence is None:
+            divergence_dict = record.get("divergence") or record.get("belief_divergence")
+            if isinstance(divergence_dict, dict) and divergence_key in divergence_dict:
+                divergence = float(divergence_dict[divergence_key])
+
+        confidences.append(confidence if confidence is not None else 1.0)
+        divergences.append(divergence if divergence is not None else 0.0)
+
     return steps, confidences, divergences
 
 
 def plot_metrics(
-    steps: List[int],
-    confidences: List[float],
-    divergences: List[float],
+    records: List[Dict],
     divergence_key: str,
-    concept_threshold: Optional[float],
-    divergence_threshold: Optional[float],
-    l2d_threshold: Optional[float],
     output_path: Path,
+    title: str = "Belief divergence over time",
 ) -> None:
-    fig, (conf_ax, div_ax) = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+    steps, confidences, divergences = _prepare_series(records, divergence_key)
 
-    conf_ax.plot(steps, confidences, label="Avg concept confidence", color="C0")
-    if concept_threshold is not None:
-        conf_ax.axhline(concept_threshold, linestyle="--", color="C2", label="CBWM threshold")
-    conf_ax.set_ylabel("Confidence")
-    conf_ax.legend()
-    conf_ax.grid(True, linestyle=":", alpha=0.5)
+    fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
-    div_ax.plot(steps, divergences, label=divergence_key, color="C1")
-    if divergence_threshold is not None:
-        div_ax.axhline(divergence_threshold, linestyle="--", color="C3", label="Divergence threshold")
-    if l2d_threshold is not None:
-        div_ax.axhline(l2d_threshold, linestyle=":", color="C4", label="L2D threshold")
-    div_ax.set_xlabel("Step")
-    div_ax.set_ylabel("Divergence")
-    div_ax.legend()
-    div_ax.grid(True, linestyle=":", alpha=0.5)
+    axes[0].plot(steps, confidences, label="Avg concept confidence", color="#1f77b4")
+    axes[0].set_ylabel("Confidence")
+    axes[0].grid(True, alpha=0.3)
+    axes[0].legend()
 
-    plt.tight_layout()
-    fig.savefig(output_path, dpi=200)
-    plt.close(fig)
+    axes[1].plot(steps, divergences, label=f"Divergence: {divergence_key}", color="#d62728")
+    axes[1].set_xlabel("Step")
+    axes[1].set_ylabel("Divergence")
+    axes[1].grid(True, alpha=0.3)
+    axes[1].legend()
+
+    fig.suptitle(title)
+    fig.tight_layout()
+    fig.subplots_adjust(top=0.93)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path)
+    print(f"Saved plot to {output_path}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--log-path", type=Path, required=True, help="Metrics JSON/JSONL file or directory containing one.")
-    parser.add_argument("--divergence-key", default="concept_js_divergence", help="Key to extract from divergence metrics.")
-    parser.add_argument("--concept-threshold", type=float, default=None, help="Optional CBWM confidence threshold line.")
-    parser.add_argument("--divergence-threshold", type=float, default=None, help="Optional divergence threshold line.")
-    parser.add_argument("--l2d-threshold", type=float, default=None, help="Optional Listen-to-Disambiguate threshold line.")
+    parser = argparse.ArgumentParser(description="Visualize belief divergence and concept confidence.")
+    parser.add_argument("input", type=Path, help="Path to a log file or directory with JSON/JSONL records.")
+    parser.add_argument(
+        "--divergence-key",
+        default="belief_divergence",
+        help="Metric key to visualize (e.g., belief_divergence, concept_js_divergence).",
+    )
     parser.add_argument(
         "--output",
         type=Path,
-        default=None,
-        help="Path to save the figure. Defaults to <log-path>/belief_divergence.png",
+        default=Path("outputs/belief_divergence.png"),
+        help="Where to write the resulting plot.",
     )
+    parser.add_argument(
+        "--title",
+        default="Belief divergence over time",
+        help="Custom title for the plot.",
+    )
+
     args = parser.parse_args()
 
-    metrics_path = _discover_metrics_file(args.log_path)
-    records = _load_records(metrics_path)
-    steps, confidences, divergences = _extract_series(records, args.divergence_key)
+    files = _collect_files(args.input)
+    if not files:
+        raise FileNotFoundError(f"No JSON/JSONL logs found under {args.input}")
 
-    if not steps:
-        raise RuntimeError(f"No belief metrics found in {metrics_path}")
+    records = list(_iter_json_records(files))
+    if not records:
+        raise ValueError(f"No readable JSON records found in {len(files)} files")
 
-    output_path = args.output or metrics_path.with_name("belief_divergence.png")
-    plot_metrics(
-        steps,
-        confidences,
-        divergences,
-        args.divergence_key,
-        args.concept_threshold,
-        args.divergence_threshold,
-        args.l2d_threshold,
-        output_path,
-    )
-    print(f"Saved plot to {output_path}")
+    plot_metrics(records, args.divergence_key, args.output, title=args.title)
 
 
 if __name__ == "__main__":

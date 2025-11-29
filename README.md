@@ -139,6 +139,30 @@ python scripts/visualize_belief_divergence.py --log-path outputs/habitat_llm/<ru
     --concept-threshold 0.6 --divergence-threshold 0.25 --l2d-threshold 0.5
 ```
 
+## Belief-aware configuration knobs
+
+Belief hooks can now be tuned directly from the planner configs to better control correction and recovery behaviors. Key options live under the `plan_config.decision_hooks` section in [`habitat_llm/conf/planner/llm_planner.yaml`](./habitat_llm/conf/planner/llm_planner.yaml):
+
+- `cbwm_enabled`: master switch for concept-belief world model (CBWM) hooks.
+- `concept_confidence_threshold`: minimum average confidence before re-asking for observations.
+- `divergence_metric_type`: which divergence metric to track (e.g., `belief_divergence`, `concept_js_divergence`).
+- `divergence_threshold` / `correction_divergence_threshold`: thresholds for warnings vs. direct correction.
+- `l2d_action_enabled`, `l2d_divergence_threshold`, `l2d_action`: enable a separate “look-to-disambiguate” action once divergence rises above a softer boundary.
+
+The example [`habitat_llm/conf/examples/belief_hook_demo.yaml`](./habitat_llm/conf/examples/belief_hook_demo.yaml) is updated with these fields for quick experimentation.
+
+## Visualizing belief divergence
+
+Use `scripts/visualize_belief_divergence.py` to plot concept confidence and belief divergence curves from JSON/JSONL logs:
+
+```bash
+python scripts/visualize_belief_divergence.py <path-to-log-or-dir> \
+    --divergence-key concept_js_divergence \
+    --output outputs/belief_divergence.png
+```
+
+Logs may contain flat metrics (e.g., `belief_divergence`, `avg_concept_confidence`) or nested dictionaries under a `metrics` key. The script will average any `concept_confidence` dictionaries it finds and saves the resulting figure to the requested path.
+
 ## Testing episodes
 
 To test whether a dataset is runnable and the success at step 0, run the following command. Set the `habitat.dataset.data_path` to the dataset you want to test.
