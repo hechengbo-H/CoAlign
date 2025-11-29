@@ -17,9 +17,14 @@ plan_config:
     centralized: False
     decision_hooks:
       enable: True
+      cbwm_enabled: True
       concept_confidence_threshold: 0.45
+      divergence_metric_type: "concept_js_divergence"
       divergence_threshold: 0.2
       correction_divergence_threshold: 0.35
+      l2d_action_enabled: False
+      l2d_divergence_threshold: 0.15
+      l2d_action: "LookToDisambiguate"
       low_confidence_action: "AppendObservation"
       high_divergence_action: "AskHuman"
       correction_action: "CorrectHuman"

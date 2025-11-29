@@ -2,6 +2,11 @@ demo:
   description: "Toy configuration for belief-aware planner demo."
   decision_hooks:
     enable: True
+    cbwm_enabled: True
     concept_confidence_threshold: 0.6
+    divergence_metric_type: "concept_js_divergence"
     divergence_threshold: 0.25
     correction_divergence_threshold: 0.4
+    l2d_action_enabled: True
+    l2d_divergence_threshold: 0.2
+    l2d_action: "LookToDisambiguate"

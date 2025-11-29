@@ -87,3 +87,34 @@ def test_ask_human_tool_logs_feedback():
     _, response = tool.process_high_level_action("Where is the mug?", {})
     assert env.belief_update_log[-1][0] == "AskHuman"
     assert "Asked human" in response
+
+
+def test_divergence_metric_selection_and_l2d():
+    decision_conf = {
+        "enable": True,
+        "divergence_metric_type": "concept_js_divergence",
+        "divergence_threshold": 0.5,
+        "l2d_action_enabled": True,
+        "l2d_divergence_threshold": 0.2,
+        "l2d_action": "LookToDisambiguate",
+    }
+    metrics = BeliefMetrics(
+        avg_concept_confidence=0.9,
+        belief_divergence=0.05,
+        divergence_metrics={"concept_js_divergence": 0.25},
+    )
+    action, reason = choose_belief_action(decision_conf, metrics)
+    assert action == "LookToDisambiguate"
+    assert "0.25" in reason
+
+
+def test_cbwm_toggle_disables_hooks():
+    decision_conf = {
+        "enable": True,
+        "cbwm_enabled": False,
+        "divergence_threshold": 0.1,
+    }
+    metrics = BeliefMetrics(avg_concept_confidence=0.2, belief_divergence=0.9)
+    action, reason = choose_belief_action(decision_conf, metrics)
+    assert action is None
+    assert "disabled" in reason
