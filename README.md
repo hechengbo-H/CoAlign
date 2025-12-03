@@ -78,6 +78,36 @@ python -m habitat_llm.examples.planner_demo --config-name baselines/single_agent
 python -m habitat_llm.examples.planner_demo --config-name baselines/heuristic_full_obs.yaml \
     habitat.dataset.data_path="data/datasets/partnr_episodes/v0_0/val_mini.json.gz"
 ```
+
+### CBWM + Dual-Belief + L2D Demo (custom config)
+Use the bundled demo config to run your concept-bottleneck + dual-belief + Learning-to-Defer pipeline end-to-end. Thresholds for concepts, belief divergence, and defer decisions live inside `habitat_llm/conf/examples/cbwm_dual_belief_demo.yaml`.
+
+```bash
+python -m habitat_llm.examples.planner_demo --config-name examples/cbwm_dual_belief_demo.yaml \
+    habitat.dataset.data_path="data/datasets/partnr_episodes/v0_0/val_mini.json.gz" \
+    evaluation.planner.plan_config.llm.inference_mode=hf \
+    evaluation.planner.plan_config.llm.generation_params.engine=meta-llama/Meta-Llama-3-8B-Instruct
+```
+
+### CBWM + Dual-Belief + L2D Ablations
+Run the one-line ablation suite script (defaults to the PARTNR mini validation split) or pick individual configs if you want to toggle components manually.
+
+```bash
+# Full sweep: full method + three single-component ablations + all innovations off
+DATASET_PATH=data/datasets/partnr_episodes/v0_0/val_mini.json.gz \
+    bash scripts/run_cbwm_dual_belief_suite.sh
+
+# Individual runs (examples)
+python -m habitat_llm.examples.planner_demo --config-name examples/cbwm_ablation_no_cbwm.yaml \
+    habitat.dataset.data_path="data/datasets/partnr_episodes/v0_0/val_mini.json.gz"
+python -m habitat_llm.examples.planner_demo --config-name examples/cbwm_ablation_no_dual_belief.yaml \
+    habitat.dataset.data_path="data/datasets/partnr_episodes/v0_0/val_mini.json.gz"
+python -m habitat_llm.examples.planner_demo --config-name examples/cbwm_ablation_no_l2d.yaml \
+    habitat.dataset.data_path="data/datasets/partnr_episodes/v0_0/val_mini.json.gz"
+python -m habitat_llm.examples.planner_demo --config-name examples/cbwm_ablation_all_off.yaml \
+    habitat.dataset.data_path="data/datasets/partnr_episodes/v0_0/val_mini.json.gz"
+```
+
 ### Custom Instructions
 
 In addition to the PARTNR splits you can run custom instructions as well. Below is an example running a custom instruction using single agent react.

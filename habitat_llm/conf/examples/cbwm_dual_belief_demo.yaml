@@ -1,0 +1,33 @@
+# @package _global_
+
+defaults:
+  - /examples/centralized_full_obs
+  - override /planner@evaluation.planner: cbwm_dual_belief_planner
+  - _self_
+
+# Dataset shortcut so you can change splits without editing defaults
+paths:
+  dataset_path: data/datasets/partnr_episodes/v0_0/val_mini.json.gz
+
+habitat:
+  dataset:
+    data_path: ${paths.dataset_path}
+
+# Concept-Bottleneck toggles
+cbwm:
+  enabled: true
+  concept_threshold: 0.4
+  log_concepts: true
+
+# Dual belief graph toggles
+dual_belief:
+  enabled: true
+  divergence_metric: kl
+  divergence_threshold: 0.25
+
+# Learning-to-Defer strategy thresholds
+l2d:
+  enabled: true
+  ask_threshold: 0.35
+  observe_threshold: 0.55
+  correct_threshold: 0.75

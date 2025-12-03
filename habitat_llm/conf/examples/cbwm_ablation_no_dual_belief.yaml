@@ -1,0 +1,10 @@
+# @package _global_
+
+defaults:
+  - cbwm_dual_belief_demo
+  - _self_
+
+# Disable the human belief graph and divergence while keeping CBWM + L2D.
+dual_belief:
+  enabled: false
+  divergence_threshold: 0.0

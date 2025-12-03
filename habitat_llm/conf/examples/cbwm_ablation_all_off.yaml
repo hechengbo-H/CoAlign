@@ -1,0 +1,20 @@
+# @package _global_
+
+defaults:
+  - cbwm_dual_belief_demo
+  - _self_
+
+# Turn off all three innovations to serve as a baseline for ablations.
+cbwm:
+  enabled: false
+  log_concepts: false
+
+dual_belief:
+  enabled: false
+  divergence_threshold: 0.0
+
+l2d:
+  enabled: false
+  ask_threshold: 1.0
+  observe_threshold: 1.0
+  correct_threshold: 1.0

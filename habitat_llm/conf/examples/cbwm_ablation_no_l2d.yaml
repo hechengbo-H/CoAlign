@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - cbwm_dual_belief_demo
+  - _self_
+
+# Disable the Learning-to-Defer actions while keeping CBWM + dual-belief.
+l2d:
+  enabled: false
+  ask_threshold: 1.0
+  observe_threshold: 1.0
+  correct_threshold: 1.0

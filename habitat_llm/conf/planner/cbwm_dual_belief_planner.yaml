@@ -1,0 +1,35 @@
+defaults:
+  - /llm@plan_config.llm: llama
+  - /instruct@plan_config.instruct: zero_shot_prompt
+
+_target_: 'habitat_llm.planner.ZeroShotReactPlanner'
+_recursive_: False
+_partial_: True
+
+plan_config:
+  replanning_threshold: 25
+  planning_mode: "cot"
+  constrained_generation: False
+  objects_response: True
+  objects_response_include_states: False
+  centralized: False
+  enable_rag: False
+  rag_dataset_dir: ""
+  rag_data_source_name: ""
+  example_type: "react"
+
+  cbwm:
+    enabled: ${cbwm.enabled}
+    concept_threshold: ${cbwm.concept_threshold}
+    log_concepts: ${cbwm.log_concepts}
+
+  dual_belief:
+    enabled: ${dual_belief.enabled}
+    divergence_metric: ${dual_belief.divergence_metric}
+    divergence_threshold: ${dual_belief.divergence_threshold}
+
+  l2d:
+    enabled: ${l2d.enabled}
+    ask_threshold: ${l2d.ask_threshold}
+    observe_threshold: ${l2d.observe_threshold}
+    correct_threshold: ${l2d.correct_threshold}
